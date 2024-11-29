@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Validation.AspNetCore;
 using OpeniddictServer.Data;
 using Quartz;
 using System.Security.Claims;
@@ -92,7 +93,7 @@ public class Startup
                     builder
                         .AllowCredentials()
                         .WithOrigins(
-                            "https://localhost:4200", "https://localhost:4204")
+                            "https://localhost:4200", "https://localhost:4204", "http://localhost:4200")
                         .SetIsOriginAllowedToAllowWildcardSubdomains()
                         .AllowAnyHeader()
                         .AllowAnyMethod();
@@ -102,34 +103,35 @@ public class Startup
         // Register the Quartz.NET service and configure it to block shutdown until jobs are complete.
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
 
-        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddOpenIdConnect("KeyCloak", "KeyCloak", options =>
-            {
-                options.SignInScheme = "Identity.External";
-                //Keycloak server
-                options.Authority = Configuration.GetSection("Keycloak")["ServerRealm"];
-                //Keycloak client ID
-                options.ClientId = Configuration.GetSection("Keycloak")["ClientId"];
-                //Keycloak client secret in user secrets for dev
-                options.ClientSecret = Configuration.GetSection("Keycloak")["ClientSecret"];
-                //Keycloak .wellknown config origin to fetch config
-                options.MetadataAddress = Configuration.GetSection("Keycloak")["Metadata"];
-                //Require keycloak to use SSL
+        //services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        //    .AddOpenIdConnect("KeyCloak", "KeyCloak", options =>
+        //    {
+        //        options.SignInScheme = "Identity.External";
+        //        //Keycloak server
+        //        options.Authority = Configuration.GetSection("Keycloak")["ServerRealm"];
+        //        //Keycloak client ID
+        //        options.ClientId = Configuration.GetSection("Keycloak")["ClientId"];
+        //        //Keycloak client secret in user secrets for dev
+        //        options.ClientSecret = Configuration.GetSection("Keycloak")["ClientSecret"];
+        //        //Keycloak .wellknown config origin to fetch config
+        //        options.MetadataAddress = Configuration.GetSection("Keycloak")["Metadata"];
+        //        //Require keycloak to use SSL
 
-                options.GetClaimsFromUserInfoEndpoint = true;
-                options.Scope.Add("openid");
-                options.Scope.Add("profile");
-                options.SaveTokens = true;
-                options.ResponseType = OpenIdConnectResponseType.Code;
-                options.RequireHttpsMetadata = false; //dev
+        //        options.GetClaimsFromUserInfoEndpoint = true;
+        //        options.Scope.Add("openid");
+        //        options.Scope.Add("profile");
+        //        options.SaveTokens = true;
+        //        options.ResponseType = OpenIdConnectResponseType.Code;
+        //        options.RequireHttpsMetadata = false; //dev
 
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    NameClaimType = "name",
-                    RoleClaimType = ClaimTypes.Role,
-                    ValidateIssuer = true
-                };
-            });
+        //        options.TokenValidationParameters = new TokenValidationParameters
+        //        {
+        //            NameClaimType = "name",
+        //            RoleClaimType = ClaimTypes.Role,
+        //            ValidateIssuer = true
+        //        };
+        //    })
+        //    ;
 
         services.AddOpenIddict()
             .AddCore(options =>
@@ -139,6 +141,59 @@ public class Startup
 
                 options.UseQuartz();
             })
+    // Register the OpenIddict client components.
+    .AddClient(options =>
+    {
+        // Note: this sample uses the code flow, but you can enable the other flows if necessary.
+        options.AllowPasswordFlow()
+               .AllowClientCredentialsFlow()
+               .AllowRefreshTokenFlow()
+               .AllowAuthorizationCodeFlow()
+               ;
+
+        options.AddDevelopmentEncryptionCertificate()
+               .AddDevelopmentSigningCertificate();
+        //options.AddSigningCertificate(certificate);
+        //options.AddEncryptionCertificate(certificate);
+
+        // Register the ASP.NET Core host and configure the ASP.NET Core-specific options.
+        options.UseAspNetCore()
+               .EnableRedirectionEndpointPassthrough()
+               .DisableTransportSecurityRequirement();
+
+        // Register the System.Net.Http integration and use the identity of the current
+        // assembly as a more specific user agent, which can be useful when dealing with
+        // providers that use the user agent as a way to throttle requests (e.g Reddit).
+        options.UseSystemNetHttp()
+               .SetProductInformation(typeof(Program).Assembly);
+
+        // Register the Web providers integrations.
+        //
+        // Note: to mitigate mix-up attacks, it's recommended to use a unique redirection endpoint
+        // URI per provider, unless all the registered providers support returning a special "iss"
+        // parameter containing their URL as part of authorization responses. For more information,
+        // see https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics#section-4.4.
+        options.UseWebProviders()
+               .AddMicrosoft(options =>
+               {
+                   options.SetProviderName("Microsoft")
+                          .SetTenant("c24393c2-a087-4a39-9df0-259fa2c0b4f1")
+                          .SetClientId("343fa60c-7ab0-4839-b2e4-fa07aeb9aad2")
+                          .SetClientSecret("xbp8Q~jHLRCVNMCWDaqn7.lo2SLuSIzVEvz6-aCC")
+                          .SetRedirectUri($"https://localhost:44395/callback/login/Microsoft")
+                          .AddScopes(Scopes.OpenId, Scopes.Profile, Scopes.Email, Scopes.Phone)
+                          ;
+               })
+               .AddGitHub(options =>
+               {
+                   options.SetProviderName("GitHub")
+                          .SetClientId("Ov23liVpzxU7rRAfmnlN")
+                          .SetClientSecret("18b7749f3e5f60b77a8faf01157346a3f8bc50fc")
+                          .SetRedirectUri($"https://localhost:44395/callback/login/github")
+                          ;
+               })
+               ;
+    })
             .AddServer(options =>
             {
                 // Enable the authorization, logout, token and userinfo endpoints.
@@ -172,6 +227,9 @@ public class Startup
                 options.UseLocalServer();
                 options.UseAspNetCore();
             });
+
+        services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie();
 
         services.AddHostedService<Worker>();
     }

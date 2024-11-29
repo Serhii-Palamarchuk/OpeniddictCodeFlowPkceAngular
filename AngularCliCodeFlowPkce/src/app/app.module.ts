@@ -29,6 +29,10 @@ import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
             renewTimeBeforeTokenExpiresInSeconds: 10,
             useRefreshToken: true,
             logLevel: LogLevel.Debug,
+            authWellknownEndpointUrl: 'https://localhost:44395/.well-known/openid-configuration',
+            customParamsAuthRequest: {
+                authentication_scheme: 'Microsoft'
+            }
         },
       }),
   ],

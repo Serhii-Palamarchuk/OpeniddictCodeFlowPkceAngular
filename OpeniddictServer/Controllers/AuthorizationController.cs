@@ -6,17 +6,20 @@
 
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
+using OpenIddict.Client.AspNetCore;
 using OpenIddict.Server.AspNetCore;
 using OpeniddictServer.Data;
 using OpeniddictServer.Helpers;
 using OpeniddictServer.ViewModels.Authorization;
 using System.Security.Claims;
+using System.Security.Principal;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace OpeniddictServer.Controllers;
@@ -28,19 +31,22 @@ public class AuthorizationController : Controller
     private readonly IOpenIddictScopeManager _scopeManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ILogger<AuthorizationController> _logger;
 
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
         IOpenIddictAuthorizationManager authorizationManager,
         IOpenIddictScopeManager scopeManager,
         SignInManager<ApplicationUser> signInManager,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ILogger<AuthorizationController> logger)
     {
         _applicationManager = applicationManager;
         _authorizationManager = authorizationManager;
         _scopeManager = scopeManager;
         _signInManager = signInManager;
         _userManager = userManager;
+        _logger = logger;
     }
 
     [HttpGet("~/connect/authorize")]
@@ -50,6 +56,8 @@ public class AuthorizationController : Controller
     {
         var request = HttpContext.GetOpenIddictServerRequest() ??
             throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
+
+        string authenticationScheme = request.GetParameter("authentication_scheme").ToString();
 
         // If prompt=login was specified by the client application,
         // immediately return the user agent to the login page.
@@ -66,7 +74,7 @@ public class AuthorizationController : Controller
             parameters.Add(KeyValuePair.Create(Parameters.Prompt, new StringValues(prompt)));
 
             return Challenge(
-                authenticationSchemes: IdentityConstants.ApplicationScheme,
+                authenticationSchemes: authenticationScheme,//IdentityConstants.ApplicationScheme,
                 properties: new AuthenticationProperties
                 {
                     RedirectUri = Request.PathBase + Request.Path + QueryString.Create(parameters)
@@ -76,7 +84,7 @@ public class AuthorizationController : Controller
         // Retrieve the user principal stored in the authentication cookie.
         // If a max_age parameter was provided, ensure that the cookie is not too old.
         // If the user principal can't be extracted or the cookie is too old, redirect the user to the login page.
-        var result = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);// IdentityConstants.ApplicationScheme);
         if (result == null || !result.Succeeded || (request.MaxAge != null && result.Properties?.IssuedUtc != null &&
             DateTimeOffset.UtcNow - result.Properties.IssuedUtc > TimeSpan.FromSeconds(request.MaxAge.Value)))
         {
@@ -94,7 +102,7 @@ public class AuthorizationController : Controller
             }
 
             return Challenge(
-                authenticationSchemes: IdentityConstants.ApplicationScheme,
+                authenticationSchemes: authenticationScheme,//IdentityConstants.ApplicationScheme,
                 properties: new AuthenticationProperties
                 {
                     RedirectUri = Request.PathBase + Request.Path + QueryString.Create(
@@ -182,6 +190,7 @@ public class AuthorizationController : Controller
 
             // In every other case, render the consent form.
             default:
+                //return SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
                 return View(new AuthorizeViewModel
                 {
                     ApplicationName = await _applicationManager.GetDisplayNameAsync(application),
@@ -429,6 +438,82 @@ public class AuthorizationController : Controller
             default:
                 yield return Destinations.AccessToken;
                 yield break;
+        }
+    }
+
+
+    [HttpGet("~/callback/login/Microsoft")]
+    [HttpPost("~/callback/login/Microsoft")]
+    public async Task<IActionResult> CallbackLoginMicrosoft()
+    {
+        try
+        {
+            // Resolve the claims extracted by OpenIddict from the userinfo response returned by GitHub.
+            var result = await HttpContext.AuthenticateAsync(OpenIddictClientAspNetCoreDefaults.AuthenticationScheme);
+            string providerName = result.Principal!.FindFirst("oi_prvd_name")!.Value;
+            string nameIdentifier = result.Principal!.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+            string name = result.Principal!.FindFirst("name")!.Value;
+            string email = result.Principal!.FindFirst("email")!.Value;
+            string givenName = result.Principal!.FindFirst(ClaimTypes.GivenName)!.Value;
+            string surname = result.Principal!.FindFirst("family_name")!.Value;
+
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    EmailConfirmed = true,
+                    //LastName = surname,
+                    //FirstName = givenName,
+                    //MiddleName = model.MiddleName,
+                };
+
+                var cu = await _userManager.CreateAsync(user);
+                if (!cu.Succeeded)
+                {
+                    _logger.LogError(string.Join(',', cu.Errors));
+                    throw new Exception(cu.Errors.First().Description);
+                }
+            }
+
+            var login = await _userManager.FindByLoginAsync(providerName, nameIdentifier);
+            if (login == null)
+            {
+                var al = await _userManager.AddLoginAsync(user, new UserLoginInfo(
+                    loginProvider: providerName,
+                    providerKey: nameIdentifier,
+                    displayName: name
+                    ));
+
+                if (!al.Succeeded)
+                {
+                    _logger.LogError(string.Join(',', al.Errors));
+                    throw new Exception(al.Errors.First().Description);
+                }
+            }
+
+            var identity = new ClaimsIdentity(CookieAuthenticationDefaults.AuthenticationScheme);
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+            identity.AddClaim(new Claim(Claims.Subject, user.Id.ToString()));
+            identity.AddClaim(new Claim(ClaimTypes.Email, email));
+            identity.AddClaim(new Claim(ClaimTypes.Name, name));
+            identity.AddClaim(new Claim(ClaimTypes.GivenName, givenName));
+            identity.AddClaim(new Claim(ClaimTypes.Surname, surname));
+            identity.AddClaim(new Claim("provider_name", providerName));
+
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = result.Properties!.RedirectUri
+            };
+
+            return SignIn(new ClaimsPrincipal(identity), properties, CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            return BadRequest(ex.Message);
         }
     }
 }
