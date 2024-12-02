@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -79,10 +81,32 @@ public class Startup
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy("dataEventRecordsPolicy", policyUser =>
+            //options.AddPolicy("dataEventRecordsPolicy", policyUser =>
+            //{
+            //    policyUser.Requirements.Add(new RequireScope());
+            //});
+            options.DefaultPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser() // Or add other requirements as needed
+            .RequireAssertion(context =>
             {
-                policyUser.Requirements.Add(new RequireScope());
-            });
+                string resource = "";
+                if (context.Resource is HttpContext httpContext)
+                {
+                    var endpoint = httpContext.GetEndpoint();
+                    var actionDescriptor = endpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
+                    resource = actionDescriptor.ActionName;
+                }
+
+                //TODO: check permission
+                if (true)
+                    return true;
+
+                if (context.User.HasClaim(claim => claim.Type == "oi_scp" && claim.Value == $"ResourceAPIv2.{resource}"))
+                    return true;
+
+                return false;
+            })
+            .Build();
         });
 
         services.AddSwaggerGen(c =>
