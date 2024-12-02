@@ -12,6 +12,7 @@
 
                     <li class="nav-item"><a class="nav-link" *ngIf="!isAuthenticated" (click)="login()">LOGIN</a></li>
                     <li class="nav-item"><a class="nav-link" *ngIf="isAuthenticated" (click)="logoffAndRevokeTokens()">LOGOUT</a></li>
+                    <li class="nav-item"><a class="nav-link" *ngIf="isAuthenticated" (click)="getUserInfo()">User Info</a></li>
                 </ul>
             </div><!--/.nav-collapse -->
         </div><!--/.container-fluid -->

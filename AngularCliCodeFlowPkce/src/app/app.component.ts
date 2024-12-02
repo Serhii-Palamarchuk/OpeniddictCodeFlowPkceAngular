@@ -48,4 +48,8 @@ export class AppComponent implements OnInit {
     revokeAccessToken(): void {
         this.oidcSecurityService.revokeAccessToken().subscribe((result) => console.log(result));
     }
+
+    getUserInfo(): void {
+        this.oidcSecurityService.getUserData().subscribe((result) => console.log(result));
+    }
 }
