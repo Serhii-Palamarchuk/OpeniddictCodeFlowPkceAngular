@@ -190,25 +190,26 @@ public class AuthorizationController : Controller
 
             // In every other case, render the consent form.
             default:
-                //return SignIn(new ClaimsPrincipal(identity), properties: null, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-                return View(new AuthorizeViewModel
-                {
-                    ApplicationName = await _applicationManager.GetDisplayNameAsync(application),
-                    Scope = request.Scope
-                });
+                return await Accept(user);
+                //return View(new AuthorizeViewModel
+                //{
+                //    ApplicationName = await _applicationManager.GetDisplayNameAsync(application),
+                //    Scope = request.Scope
+                //});
         }
     }
 
     [Authorize, FormValueRequired("submit.Accept")]
     [HttpPost("~/connect/authorize"), ValidateAntiForgeryToken]
-    public async Task<IActionResult> Accept()
+    public async Task<IActionResult> Accept(ApplicationUser user = null)
     {
         var request = HttpContext.GetOpenIddictServerRequest() ??
             throw new InvalidOperationException("The OpenID Connect request cannot be retrieved.");
 
         // Retrieve the profile of the logged in user.
-        var user = await _userManager.GetUserAsync(User) ??
-            throw new InvalidOperationException("The user details cannot be retrieved.");
+        if (user == null)
+            user = await _userManager.GetUserAsync(User) ??
+                throw new InvalidOperationException("The user details cannot be retrieved.");
 
         // Retrieve the application details from the database.
         var application = await _applicationManager.FindByClientIdAsync(request.ClientId) ??
@@ -276,7 +277,7 @@ public class AuthorizationController : Controller
     public IActionResult Deny() => Forbid(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 
     [HttpGet("~/connect/logout")]
-    public IActionResult Logout() => View();
+    public IActionResult Logout() => LogoutPost().Result;
 
     [ActionName(nameof(Logout)), HttpPost("~/connect/logout"), ValidateAntiForgeryToken]
     public async Task<IActionResult> LogoutPost()

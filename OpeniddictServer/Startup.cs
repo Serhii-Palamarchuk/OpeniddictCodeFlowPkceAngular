@@ -177,9 +177,9 @@ public class Startup
                .AddMicrosoft(options =>
                {
                    options.SetProviderName("Microsoft")
-                          .SetTenant("c24393c2-a087-4a39-9df0-259fa2c0b4f1")
-                          .SetClientId("343fa60c-7ab0-4839-b2e4-fa07aeb9aad2")
-                          .SetClientSecret("xbp8Q~jHLRCVNMCWDaqn7.lo2SLuSIzVEvz6-aCC")
+                          .SetTenant("6f80195d-51ab-4c14-aaff-b04c01e5be9c")
+                          .SetClientId("d186b2f4-cb66-4b10-b670-3f9b0c4f29d3")
+                          .SetClientSecret("ZJO8Q~wN_jVB_nqhH321-Wa4GtLDTqWggBUkSde8")
                           .SetRedirectUri($"https://localhost:44395/callback/login/Microsoft")
                           .AddScopes(Scopes.OpenId, Scopes.Profile, Scopes.Email, Scopes.Phone)
                           ;
@@ -187,8 +187,8 @@ public class Startup
                .AddGitHub(options =>
                {
                    options.SetProviderName("GitHub")
-                          .SetClientId("Ov23liVpzxU7rRAfmnlN")
-                          .SetClientSecret("18b7749f3e5f60b77a8faf01157346a3f8bc50fc")
+                          .SetClientId("Ov23lia1Jj87inESrWQL")
+                          .SetClientSecret("c58949026d25d6edb5c6c47a00cc5377b2e6fb02")
                           .SetRedirectUri($"https://localhost:44395/callback/login/github")
                           ;
                })
