@@ -26,6 +26,10 @@ public class Startup
     {
         var connection = Configuration.GetConnectionString("DefaultConnection");
 
+        var _options = Configuration.GetSection(AuthApiOptions.Position).Get<AuthApiOptions>();
+
+        services.Configure<AuthApiOptions>(Configuration.GetSection(AuthApiOptions.Position));
+
         services.AddDbContext<DataEventRecordContext>(options =>
             options.UseSqlite(connection)
         );
@@ -37,8 +41,7 @@ public class Startup
                 {
                     builder
                         .AllowCredentials()
-                        .WithOrigins(
-                            "https://localhost:4200")
+                        .WithOrigins("https://localhost:4200")
                         .SetIsOriginAllowedToAllowWildcardSubdomains()
                         .AllowAnyHeader()
                         .AllowAnyMethod();
@@ -61,14 +64,14 @@ public class Startup
             {
                 // Note: the validation handler uses OpenID Connect discovery
                 // to retrieve the address of the introspection endpoint.
-                options.SetIssuer("https://localhost:44395/");
-                options.AddAudiences("rs_dataEventRecordsApi");
+                options.SetIssuer(_options.AuthUrl);
+                options.AddAudiences(_options.Audience);
 
                 // Configure the validation handler to use introspection and register the client
                 // credentials used when communicating with the remote introspection endpoint.
                 options.UseIntrospection()
-                        .SetClientId("rs_dataEventRecordsApi")
-                        .SetClientSecret("dataEventRecordsSecret");
+                        .SetClientId(_options.ClientId)
+                        .SetClientSecret(_options.ClientSecret);
 
                 // Register the System.Net.Http integration.
                 options.UseSystemNetHttp();
@@ -87,27 +90,10 @@ public class Startup
             //});
             options.DefaultPolicy = new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser() // Or add other requirements as needed
-            .RequireAssertion(context =>
-            {
-                string resource = "";
-                if (context.Resource is HttpContext httpContext)
-                {
-                    var endpoint = httpContext.GetEndpoint();
-                    var actionDescriptor = endpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
-                    resource = actionDescriptor.ActionName;
-                }
-
-                //TODO: check permission
-                if (true)
-                    return true;
-
-                if (context.User.HasClaim(claim => claim.Type == "oi_scp" && claim.Value == $"ResourceAPIv2.{resource}"))
-                    return true;
-
-                return false;
-            })
+            .AddRequirements(new RemoteAuthorizationRequirement(_options.ClientId))
             .Build();
         });
+        services.AddScoped<IAuthorizationHandler, RemoteAuthorizationHandler>();
 
         services.AddSwaggerGen(c =>
         {

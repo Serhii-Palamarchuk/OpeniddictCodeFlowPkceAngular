@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using OpenIddict.Abstractions;
 using OpenIddict.Client.AspNetCore;
 using OpenIddict.Server.AspNetCore;
+using OpenIddict.Validation.AspNetCore;
 using OpeniddictServer.Data;
 using OpeniddictServer.Helpers;
 using OpeniddictServer.ViewModels.Authorization;
@@ -516,5 +517,43 @@ public class AuthorizationController : Controller
             _logger.LogError(ex, ex.Message);
             return BadRequest(ex.Message);
         }
+    }
+
+
+
+    [HttpPost("~/validateAccess")]
+    [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> ValidateAccess(string clientName, string controllerName, string actionName)
+    {
+        var pars = HttpContext.Request.Query;
+
+        bool isAuthorized = false;
+
+        var usr = HttpContext.User;
+        var sub = usr.Claims.SingleOrDefault(c => c.Type == OpenIddictConstants.Claims.Subject).Value;
+        var clientId = usr.Claims.SingleOrDefault(c => c.Type == OpenIddictConstants.Claims.ClientId)?.Value;
+
+        if (usr.IsInRole("Admin"))
+            isAuthorized = true;
+        else
+        {
+            if (usr.Claims.Any(c => c.Type == OpenIddictConstants.Claims.Scope))
+            {
+                var client = (await _applicationManager.FindByClientIdAsync(clientId));
+
+                var scopes = usr.GetScopes();
+                var resources = await _scopeManager.ListResourcesAsync(scopes).ToListAsync();
+
+                //if (resources.Any(r => r == resource))
+                //    isAuthorized = true;
+
+                //TODO: add check user roles permissions
+                isAuthorized = true;
+            }
+        }
+
+        if (isAuthorized)
+            return Ok(new { IsAuthorized = isAuthorized });
+        else return StatusCode(StatusCodes.Status403Forbidden);
     }
 }
