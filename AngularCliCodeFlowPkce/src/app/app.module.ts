@@ -12,42 +12,44 @@ import { AuthModule, LogLevel } from 'angular-auth-oidc-client';
 
 @NgModule({
   imports: [
-      BrowserModule,
-      FormsModule,
-      routing,
-      HttpClientModule,
-      DataEventRecordsModule,
-      AuthModule.forRoot({
-        config: {
-            authority: 'https://localhost:44395',
-            redirectUrl: window.location.origin,
-            postLogoutRedirectUri: window.location.origin,
-            clientId: 'angularclient',
-            scope: 'openid profile email dataEventRecords offline_access',
-            responseType: 'code',
-            silentRenew: true,
-            renewTimeBeforeTokenExpiresInSeconds: 10,
-            useRefreshToken: true,
-            logLevel: LogLevel.Debug,
-            authWellknownEndpointUrl: 'https://localhost:44395/.well-known/openid-configuration',
-            customParamsAuthRequest: {
-                authentication_scheme: 'Microsoft'
-            }
+    BrowserModule,
+    FormsModule,
+    routing,
+    HttpClientModule,
+    DataEventRecordsModule,
+    AuthModule.forRoot({
+      config: {
+        //authority: 'https://localhost:44395',
+        authority: 'https://apitest.terminals.com.ua:11443/api/auth/v1',
+        redirectUrl: window.location.origin,
+        postLogoutRedirectUri: window.location.origin,
+        clientId: 'angularclient',
+        scope: 'openid profile email dataEventRecords offline_access',
+        responseType: 'code',
+        silentRenew: true,
+        renewTimeBeforeTokenExpiresInSeconds: 10,
+        useRefreshToken: true,
+        logLevel: LogLevel.Debug,
+        //authWellknownEndpointUrl: 'https://localhost:44395/.well-known/openid-configuration',
+        authWellknownEndpointUrl:
+          'https://apitest.terminals.com.ua:11443/api/auth/v1/.well-known/openid-configuration',
+        customParamsAuthRequest: {
+          authentication_scheme: 'Microsoft',
         },
-      }),
+      },
+    }),
   ],
   declarations: [
-      AppComponent,
-      ForbiddenComponent,
-      HomeComponent,
-      UnauthorizedComponent
+    AppComponent,
+    ForbiddenComponent,
+    HomeComponent,
+    UnauthorizedComponent,
   ],
   providers: [],
   bootstrap: [AppComponent],
 })
-
 export class AppModule {
   constructor() {
-      console.log('APP STARTING');
+    console.log('APP STARTING');
   }
 }
