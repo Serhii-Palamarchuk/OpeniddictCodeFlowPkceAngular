@@ -109,54 +109,59 @@ public class RabbitMQService : IDisposable
                     var cookieHeader = string.Join("; ", request.HttpRequest.Cookies.Select(kvp => $"{kvp.Key}={kvp.Value}"));
 
                     // Додаємо заголовок Cookie до запиту
-                    //var httpRequest = new HttpRequestMessage(HttpMethod.Get, "https://example.com/api/endpoint");
-                    //httpRequest.Headers.Add("Cookie", cookieHeader);
-
-                    //// Виконуємо запит
-                    //var httpResponse = await httpClient.SendAsync(httpRequest);
-
-                    if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration") ||
-                        request.HttpRequest.Path.EndsWith("connect/authorize") ||
-                        request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
+                    using (var httpRequest = new HttpRequestMessage(HttpMethod.Parse(request.HttpRequest.Method), 
+                        $"https://localhost:44395/{path}{request.HttpRequest.QueryString}"))
                     {
 
 
-                        using HttpResponseMessage resp = await httpClient.GetAsync($"{path}{request.HttpRequest.QueryString}");
-                        if (!resp.IsSuccessStatusCode && resp.StatusCode != System.Net.HttpStatusCode.Redirect)
-                            throw new Exception($"Error: {resp.StatusCode} - {resp.ReasonPhrase}");
+                        //httpRequest.Headers.Add("Cookie", cookieHeader);
 
-                        foreach (var header in resp.Headers)
-                            foreach (var value in header.Value)
-                                response.Headers.Add(header.Key, value);
+                        //// Виконуємо запит
+                        //var httpResponse = await httpClient.SendAsync(httpRequest);
 
-
-                        if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration"))
+                        if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration") ||
+                            request.HttpRequest.Path.EndsWith("connect/authorize") ||
+                            request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
                         {
-                            var content = await resp.Content.ReadAsStringAsync();
+
+
+                            using var httpResponse = await httpClient.SendAsync(httpRequest);
+                            if (!httpResponse.IsSuccessStatusCode && httpResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
+                                throw new Exception($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
+
+                            foreach (var header in httpResponse.Headers)
+                                foreach (var value in header.Value)
+                                    response.Headers.Add(header.Key, value);
+
+
+                            if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration"))
+                            {
+                                var content = await httpResponse.Content.ReadAsStringAsync();
+
+                                response.ContentType = request?.HttpRequest?.ContentType;
+                                response.HttpStatusCode = System.Net.HttpStatusCode.OK;
+                                response.Data = content;
+                            }
+                            else if (request.HttpRequest.Path.EndsWith("connect/authorize"))
+                            {
+                                response.ContentType = request?.HttpRequest?.ContentType;
+                                response.HttpStatusCode = System.Net.HttpStatusCode.Redirect;
+                                response.Data = "{}";
+                            }
+                            else if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
+                            {
+
+                            }
+
+                        }
+                        else
+                        {
 
                             response.ContentType = request?.HttpRequest?.ContentType;
-                            response.HttpStatusCode = System.Net.HttpStatusCode.OK;
-                            response.Data = content;
-                        }
-                        else if (request.HttpRequest.Path.EndsWith("connect/authorize"))
-                        {
-                            response.ContentType = request?.HttpRequest?.ContentType;
-                            response.HttpStatusCode = System.Net.HttpStatusCode.Redirect;                            
-                            response.Data = "{}";
-                        }
-                        else if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
-                        {
+                            response.HttpStatusCode = System.Net.HttpStatusCode.BadRequest;
+                            response.Data = new FileData() { FileName = "file.png", FileType = "image/png", DataBytes = System.IO.File.ReadAllBytes("C:\\Users\\spalamarchuk\\Pictures\\Screenpresso\\2024-10-29_16h37_33.png") };
 
                         }
-
-                    }
-                    else
-                    {
-
-                        response.ContentType = request?.HttpRequest?.ContentType;
-                        response.HttpStatusCode = System.Net.HttpStatusCode.BadRequest;
-                        response.Data = new FileData() { FileName = "file.png", FileType = "image/png", DataBytes = System.IO.File.ReadAllBytes("C:\\Users\\spalamarchuk\\Pictures\\Screenpresso\\2024-10-29_16h37_33.png") };
-
                     }
                 }
 
