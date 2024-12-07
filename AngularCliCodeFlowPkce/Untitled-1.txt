@@ -1,0 +1,2 @@
+npm install -g @angular/cli@15.0.4
+npm install @angular/cli@15.0.4
