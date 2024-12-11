@@ -99,22 +99,25 @@ public class RabbitMQService : IDisposable
                 {
                     var httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                     var httpClient = httpFactory.CreateClient(nameof(RabbitMQService));
+                    httpClient.Timeout = TimeSpan.FromSeconds(600);
                     httpClient.BaseAddress = new Uri("https://localhost:44395");
 
                     //if (request.HttpRequest.Headers.Count > 0)
                     //    foreach (var header in request.HttpRequest.Headers)
                     //        httpClient.DefaultRequestHeaders.Add(header.Key, header.Value);
 
-                    // Формуємо рядок заголовка Cookie
-                    var cookieHeader = string.Join("; ", request.HttpRequest.Cookies.Select(kvp => $"{kvp.Key}={kvp.Value}"));
 
                     // Додаємо заголовок Cookie до запиту
-                    using (var httpRequest = new HttpRequestMessage(HttpMethod.Parse(request.HttpRequest.Method), 
+                    using (var httpRequest = new HttpRequestMessage(HttpMethod.Parse(request.HttpRequest.Method),
                         $"https://localhost:44395/{path}{request.HttpRequest.QueryString}"))
                     {
 
-
-                        //httpRequest.Headers.Add("Cookie", cookieHeader);
+                        if (request.HttpRequest.Cookies.Count > 0)
+                        {
+                            // Формуємо рядок заголовка Cookie
+                            var cookieHeader = string.Join("; ", request.HttpRequest.Cookies.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                            httpRequest.Headers.Add("Cookie", cookieHeader);
+                        }
 
                         //// Виконуємо запит
                         //var httpResponse = await httpClient.SendAsync(httpRequest);
@@ -123,7 +126,11 @@ public class RabbitMQService : IDisposable
                             request.HttpRequest.Path.EndsWith("connect/authorize") ||
                             request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
                         {
-
+                            if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
+                            {
+                                httpRequest.Headers.Add("Referer", "https://localhost:4200/");
+                            }
+ 
 
                             using var httpResponse = await httpClient.SendAsync(httpRequest);
                             if (!httpResponse.IsSuccessStatusCode && httpResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
@@ -131,8 +138,7 @@ public class RabbitMQService : IDisposable
 
                             foreach (var header in httpResponse.Headers)
                                 foreach (var value in header.Value)
-                                    response.Headers.Add(header.Key, value);
-
+                                    response.Headers.Add(header.Key, value);                            
 
                             if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration"))
                             {

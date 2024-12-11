@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Logging;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
+using OpenIddict.Abstractions;
+using OpenIddict.Client;
+using OpenIddict.Server;
 using OpenIddict.Validation.AspNetCore;
 using OpeniddictServer.Data;
 using Quartz;
@@ -145,6 +148,8 @@ public class Startup
                        .UseDbContext<ApplicationDbContext>();
 
                 options.UseQuartz();
+                
+                
             })
     // Register the OpenIddict client components.
     .AddClient(options =>
@@ -164,7 +169,9 @@ public class Startup
         // Register the ASP.NET Core host and configure the ASP.NET Core-specific options.
         options.UseAspNetCore()
                .EnableRedirectionEndpointPassthrough()
-               .DisableTransportSecurityRequirement();
+               .DisableTransportSecurityRequirement()
+                .EnableStatusCodePagesIntegration()
+        ;
 
         // Register the System.Net.Http integration and use the identity of the current
         // assembly as a more specific user agent, which can be useful when dealing with
@@ -198,6 +205,15 @@ public class Startup
                           ;
                })
                ;
+
+        options.AddEventHandler<OpenIddictClientEvents.ProcessAuthenticationContext>(builder =>
+        {
+            builder.UseInlineHandler(context =>
+            {
+                // Ваша логика обработки
+                return default;
+            });
+        });
     })
             .AddServer(options =>
             {
@@ -235,7 +251,24 @@ public class Startup
                        .EnableLogoutEndpointPassthrough()
                        .EnableTokenEndpointPassthrough()
                        .EnableUserinfoEndpointPassthrough()
-                       .EnableStatusCodePagesIntegration();
+                       .EnableStatusCodePagesIntegration()
+                       ;
+
+                //options.AddEventHandler<OpenIddictServerEvents.ProcessAuthenticationContext>(builder =>
+                //{
+                //    builder.UseInlineHandler(context =>
+                //    {
+                //        if (context.Request.RedirectUri != "https://your-callback-url.com/signin-microsoft")
+                //        {
+                //            context.Reject(error: OpenIddictConstants.Errors.InvalidRequest,
+                //                description: "The redirect URI is invalid.");
+                //        }
+
+                //        return default;
+                //    });
+
+                //});
+
             })
             .AddValidation(options =>
             {
@@ -258,6 +291,13 @@ public class Startup
         {
             AllowAutoRedirect = false // Вимикаємо автоматичний редірект
         });
+
+        services.AddLogging(builder =>
+        {
+            builder.AddConsole();
+            builder.SetMinimumLevel(LogLevel.Debug);
+        });
+
 
     }
 

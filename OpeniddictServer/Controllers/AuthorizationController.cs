@@ -8,10 +8,12 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using OpenIddict.Abstractions;
 using OpenIddict.Client.AspNetCore;
 using OpenIddict.Server.AspNetCore;
@@ -450,6 +452,16 @@ public class AuthorizationController : Controller
     {
         try
         {
+            var req = JsonConvert.SerializeObject(new
+            {
+                headers = HttpContext.Request.Headers,
+                query = HttpContext.Request.Query,
+            });
+            HttpContext.Request.Host = new HostString("apitest.terminals.com.ua:11443/api/auth/v1");
+            //var request = HttpContext.Request;
+            //var rrr = new Uri(request.GetEncodedUrl(), UriKind.Absolute);
+            //HttpContext.Request.Host = new HostString();
+
             // Resolve the claims extracted by OpenIddict from the userinfo response returned by GitHub.
             var result = await HttpContext.AuthenticateAsync(OpenIddictClientAspNetCoreDefaults.AuthenticationScheme);
             string providerName = result.Principal!.FindFirst("oi_prvd_name")!.Value;
