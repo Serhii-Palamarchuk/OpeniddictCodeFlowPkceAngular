@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Channels;
 using System.Web;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using OpeniddictServer.RabbitMQ.Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -84,6 +87,7 @@ public class RabbitMQService : IDisposable
             {
 
 
+
                 var body = ea.Body.ToArray();
                 var message = Encoding.UTF8.GetString(body);
                 var request = JsonConvert.DeserializeObject<Request>(message);
@@ -92,7 +96,7 @@ public class RabbitMQService : IDisposable
 
 
 
-                string path = request.HttpRequest.Path.Replace("/api/auth/v1/", "");
+                //string path = request.HttpRequest.Path;//.Replace("/api/auth/v1/", "");
 
                 Response response = new Response() { Headers = new Dictionary<string, string>() };
                 using (var scope = _serviceProvider.CreateScope())
@@ -100,7 +104,7 @@ public class RabbitMQService : IDisposable
                     var httpFactory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
                     var httpClient = httpFactory.CreateClient(nameof(RabbitMQService));
                     httpClient.Timeout = TimeSpan.FromSeconds(600);
-                    httpClient.BaseAddress = new Uri("https://localhost:44395");
+                    httpClient.BaseAddress = new Uri("https://apitest.terminals.com.ua:11443");
 
                     //if (request.HttpRequest.Headers.Count > 0)
                     //    foreach (var header in request.HttpRequest.Headers)
@@ -109,109 +113,133 @@ public class RabbitMQService : IDisposable
 
                     // Додаємо заголовок Cookie до запиту
                     using (var httpRequest = new HttpRequestMessage(HttpMethod.Parse(request.HttpRequest.Method),
-                        $"https://localhost:44395/{path}{request.HttpRequest.QueryString}"))
+                        $"https://apitest.terminals.com.ua:11443{request.HttpRequest.Path}{request.HttpRequest.QueryString}"))
                     {
 
-                        if (request.HttpRequest.Cookies.Count > 0)
-                        {
-                            // Формуємо рядок заголовка Cookie
-                            var cookieHeader = string.Join("; ", request.HttpRequest.Cookies.Select(kvp => $"{kvp.Key}={kvp.Value}"));
-                            httpRequest.Headers.Add("Cookie", cookieHeader);
-                        }
+                        //if (request.HttpRequest.Cookies.Count > 0)
+                        //{
+                        //    // Формуємо рядок заголовка Cookie
+                        //    var cookieHeader = string.Join("; ", request.HttpRequest.Cookies.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+                        //    httpRequest.Headers.Add("Cookie", cookieHeader);
+                        //}
+
+                        foreach (var header in request.HttpRequest.Headers)
+                            httpRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+                        //if (httpRequest.Content != null)
+                        //    httpRequest.Content.Headers.ContentType = new MediaTypeHeaderValue(request.HttpRequest.Headers["Content-Type"]);
 
                         //// Виконуємо запит
                         //var httpResponse = await httpClient.SendAsync(httpRequest);
 
-                        if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration") ||
-                            request.HttpRequest.Path.EndsWith("connect/authorize") ||
-                            request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
+
+                        //if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
+                        //{
+                        //    httpRequest.Headers.Add("Referer", "https://localhost:4200/");
+                        //    httpRequest.Headers.Add("X-Forwarded-Host", "apitest.terminals.com.ua:11443/api/auth/v1");
+                        //    httpRequest.Headers.Add("X-Forwarded-Proto", "https");
+
+                        //}
+
+                        if (request.HttpRequest.Path.EndsWith("connect/token"))
                         {
-                            if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
-                            {
-                                httpRequest.Headers.Add("Referer", "https://localhost:4200/");
-                            }
- 
+                            var content = JsonConvert.DeserializeObject<Dictionary<string, string>>(request.HttpRequest.Body);
+                            httpRequest.Headers.Add("Accept", "application/json");
+                            httpRequest.Content = new FormUrlEncodedContent(content);
+                        }
 
-                            using var httpResponse = await httpClient.SendAsync(httpRequest);
-                            if (!httpResponse.IsSuccessStatusCode && httpResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
-                                throw new Exception($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
 
-                            foreach (var header in httpResponse.Headers)
-                                foreach (var value in header.Value)
-                                    response.Headers.Add(header.Key, value);                            
+                        using var httpResponse = await httpClient.SendAsync(httpRequest);
+                        if (!httpResponse.IsSuccessStatusCode && httpResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
+                            throw new Exception($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
 
-                            if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration"))
-                            {
-                                var content = await httpResponse.Content.ReadAsStringAsync();
+                        foreach (var header in httpResponse.Headers)
+                            foreach (var value in header.Value)
+                                response.Headers.TryAdd(header.Key, value);
 
-                                response.ContentType = request?.HttpRequest?.ContentType;
-                                response.HttpStatusCode = System.Net.HttpStatusCode.OK;
-                                response.Data = content;
-                            }
-                            else if (request.HttpRequest.Path.EndsWith("connect/authorize"))
-                            {
-                                response.ContentType = request?.HttpRequest?.ContentType;
-                                response.HttpStatusCode = System.Net.HttpStatusCode.Redirect;
-                                response.Data = "{}";
-                            }
-                            else if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
-                            {
+                        if (request.HttpRequest.Path.EndsWith(".well-known/openid-configuration") || request.HttpRequest.Path.EndsWith(".well-known/jwks"))
+                        {
+                            var content = await httpResponse.Content.ReadAsStringAsync();
 
-                            }
+                            response.ContentType = request?.HttpRequest?.ContentType;
+                            response.HttpStatusCode = httpResponse.StatusCode;
+                            response.Data = content;
+                        }
+                        else if (request.HttpRequest.Path.EndsWith("connect/authorize"))
+                        {
+                            response.ContentType = request?.HttpRequest?.ContentType;
+                            response.HttpStatusCode = System.Net.HttpStatusCode.Redirect;
+                            response.Data = "{}";
+                        }
+                        else if (request.HttpRequest.Path.EndsWith("callback/login/Microsoft"))
+                        {
+                            var content = await httpResponse.Content.ReadAsStringAsync();
 
+                            response.ContentType = request?.HttpRequest?.ContentType;
+                            response.HttpStatusCode = httpResponse.StatusCode;
+                            response.Data = string.IsNullOrWhiteSpace(content) ? "{}" : content;
+                        }
+                        else if (request.HttpRequest.Path.EndsWith("connect/token"))
+                        {
+                            var content = await httpResponse.Content.ReadAsStringAsync();
+
+                            response.ContentType = request?.HttpRequest?.ContentType;
+                            response.HttpStatusCode = httpResponse.StatusCode;
+                            response.Data = string.IsNullOrWhiteSpace(content) ? "{}" : content;
                         }
                         else
                         {
+                            var content = await httpResponse.Content.ReadAsStringAsync();
 
                             response.ContentType = request?.HttpRequest?.ContentType;
-                            response.HttpStatusCode = System.Net.HttpStatusCode.BadRequest;
-                            response.Data = new FileData() { FileName = "file.png", FileType = "image/png", DataBytes = System.IO.File.ReadAllBytes("C:\\Users\\spalamarchuk\\Pictures\\Screenpresso\\2024-10-29_16h37_33.png") };
-
+                            response.HttpStatusCode = httpResponse.StatusCode;
+                            response.Data = string.IsNullOrWhiteSpace(content) ? "{}" : content;
                         }
+
                     }
+
+                    //var responseBody = Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new Response
+                    //{
+
+                    //    ContentType = request?.HttpRequest?.ContentType,
+                    //    HttpStatusCode = System.Net.HttpStatusCode.OK,
+                    //    Data = new { result = 1234, requestId = request.RequestId, message = "Слава Украине" }
+                    //}));
+                    //var json = JObject.Parse(request.HttpRequest.Body);
+                    //var number = Convert.ToInt32(json["number"]);
+                    //int result = number * number;
+
+                    //var responseBody = Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new Response
+                    //{
+                    //    ContentType = request?.HttpRequest?.ContentType,
+                    //    HttpStatusCode = System.Net.HttpStatusCode.OK,
+                    //    Data = new
+                    //    {
+                    //        message = $"Demo. Піднесення до квадрату числа {number} = {result}!",
+                    //        result = result,
+                    //    }
+                    //}));
+
+
+                    //var json = JObject.Parse(message);
+
+                    //var responseQueue = json["queueName"].ToString();
+                    //var number = Convert.ToInt32(json["requestBody"]["number"]);
+                    //int result = number * number;
+                    //var responseBody = Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new
+                    //{
+                    //    message = $"Demo. Піднесення до квадрату числа {number} = {result}!",
+                    //    result = result,
+                    //}));
+
+                    var props = _channel.CreateBasicProperties();
+                    props.CorrelationId = request.RequestId;
+                    _channel.BasicPublish(exchange: "",
+                                        routingKey: request.QueueName,
+                                        basicProperties: props,
+                                        body: Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(response))
+                                        );
                 }
-
-                //var responseBody = Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new Response
-                //{
-
-                //    ContentType = request?.HttpRequest?.ContentType,
-                //    HttpStatusCode = System.Net.HttpStatusCode.OK,
-                //    Data = new { result = 1234, requestId = request.RequestId, message = "Слава Украине" }
-                //}));
-                //var json = JObject.Parse(request.HttpRequest.Body);
-                //var number = Convert.ToInt32(json["number"]);
-                //int result = number * number;
-
-                //var responseBody = Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new Response
-                //{
-                //    ContentType = request?.HttpRequest?.ContentType,
-                //    HttpStatusCode = System.Net.HttpStatusCode.OK,
-                //    Data = new
-                //    {
-                //        message = $"Demo. Піднесення до квадрату числа {number} = {result}!",
-                //        result = result,
-                //    }
-                //}));
-
-
-                //var json = JObject.Parse(message);
-
-                //var responseQueue = json["queueName"].ToString();
-                //var number = Convert.ToInt32(json["requestBody"]["number"]);
-                //int result = number * number;
-                //var responseBody = Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new
-                //{
-                //    message = $"Demo. Піднесення до квадрату числа {number} = {result}!",
-                //    result = result,
-                //}));
-
-                var props = _channel.CreateBasicProperties();
-                props.CorrelationId = request.RequestId;
-                _channel.BasicPublish(exchange: "",
-                                    routingKey: request.QueueName,
-                                    basicProperties: props,
-                                    body: Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(response))
-                                    );
             }
             catch (Exception ex)
             {

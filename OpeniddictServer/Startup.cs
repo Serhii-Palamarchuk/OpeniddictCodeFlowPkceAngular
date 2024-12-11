@@ -14,6 +14,7 @@ using OpenIddict.Validation.AspNetCore;
 using OpeniddictServer.Data;
 using Quartz;
 using System.Configuration;
+using System.Diagnostics;
 using System.Security.Claims;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
@@ -148,8 +149,8 @@ public class Startup
                        .UseDbContext<ApplicationDbContext>();
 
                 options.UseQuartz();
-                
-                
+
+
             })
     // Register the OpenIddict client components.
     .AddClient(options =>
@@ -192,7 +193,8 @@ public class Startup
                           .SetTenant("6f80195d-51ab-4c14-aaff-b04c01e5be9c")
                           .SetClientId("d186b2f4-cb66-4b10-b670-3f9b0c4f29d3")
                           .SetClientSecret("ZJO8Q~wN_jVB_nqhH321-Wa4GtLDTqWggBUkSde8")
-                          .SetRedirectUri($"{endpointOptions.BaseUriHttps}/callback/login/Microsoft")
+                          .SetRedirectUri(endpointOptions.CallbackLoginMicrosoftUri)
+                          //.SetRedirectUri($"{endpointOptions.BaseUriHttp}/callback/login/Microsoft")
                           .AddScopes(Scopes.OpenId, Scopes.Profile, Scopes.Email, Scopes.Phone)
                           ;
                })
@@ -206,14 +208,15 @@ public class Startup
                })
                ;
 
-        options.AddEventHandler<OpenIddictClientEvents.ProcessAuthenticationContext>(builder =>
-        {
-            builder.UseInlineHandler(context =>
-            {
-                // Ваша логика обработки
-                return default;
-            });
-        });
+        //options.AddEventHandler<OpenIddictClientEvents.ProcessAuthenticationContext>(builder =>
+        //{
+        //    builder.UseInlineHandler(async context =>
+        //    {
+        //        context.HandleRequest();
+        //        // Этот код должен сработать
+        //        Console.WriteLine("Custom handler triggered.");
+        //    });
+        //});
     })
             .AddServer(options =>
             {
@@ -285,11 +288,12 @@ public class Startup
         services.AddSingleton<RabbitMQService>();
         services.AddHostedService<RabbitMQBackgroundService>();
 
-
         services.AddHttpClient(nameof(RabbitMQService))
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
-            AllowAutoRedirect = false // Вимикаємо автоматичний редірект
+            AllowAutoRedirect = false, // Вимикаємо автоматичний редірект
+            ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Skip SSL validation
+
         });
 
         services.AddLogging(builder =>

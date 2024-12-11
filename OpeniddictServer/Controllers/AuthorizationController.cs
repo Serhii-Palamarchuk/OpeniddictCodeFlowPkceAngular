@@ -4,6 +4,7 @@
  * the license and the contributors participating to this project.
  */
 
+using AuthService;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -27,6 +29,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace OpeniddictServer.Controllers;
 
+[Route(EndpointPaths.BaseAuthPath)]
 public class AuthorizationController : Controller
 {
     private readonly IOpenIddictApplicationManager _applicationManager;
@@ -35,6 +38,7 @@ public class AuthorizationController : Controller
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<AuthorizationController> _logger;
+    private readonly EndpointsOptions _endpointOptions;
 
     public AuthorizationController(
         IOpenIddictApplicationManager applicationManager,
@@ -42,7 +46,8 @@ public class AuthorizationController : Controller
         IOpenIddictScopeManager scopeManager,
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        ILogger<AuthorizationController> logger)
+        ILogger<AuthorizationController> logger,
+        IOptions<EndpointsOptions> endpointOptions)
     {
         _applicationManager = applicationManager;
         _authorizationManager = authorizationManager;
@@ -50,10 +55,11 @@ public class AuthorizationController : Controller
         _signInManager = signInManager;
         _userManager = userManager;
         _logger = logger;
+        _endpointOptions = endpointOptions.Value;
     }
 
-    [HttpGet("~/connect/authorize")]
-    [HttpPost("~/connect/authorize")]
+    [HttpGet(EndpointPaths.Authorization)]
+    [HttpPost(EndpointPaths.Authorization)]
     [IgnoreAntiforgeryToken]
     public async Task<IActionResult> Authorize()
     {
@@ -203,7 +209,7 @@ public class AuthorizationController : Controller
     }
 
     [Authorize, FormValueRequired("submit.Accept")]
-    [HttpPost("~/connect/authorize"), ValidateAntiForgeryToken]
+    [HttpPost(EndpointPaths.Authorization), ValidateAntiForgeryToken]
     public async Task<IActionResult> Accept(ApplicationUser user = null)
     {
         var request = HttpContext.GetOpenIddictServerRequest() ??
@@ -274,15 +280,15 @@ public class AuthorizationController : Controller
     }
 
     [Authorize, FormValueRequired("submit.Deny")]
-    [HttpPost("~/connect/authorize"), ValidateAntiForgeryToken]
+    [HttpPost(EndpointPaths.Authorization), ValidateAntiForgeryToken]
     // Notify OpenIddict that the authorization grant has been denied by the resource owner
     // to redirect the user agent to the client application using the appropriate response_mode.
     public IActionResult Deny() => Forbid(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
 
-    [HttpGet("~/connect/logout")]
+    [HttpGet(EndpointPaths.Logout)]
     public IActionResult Logout() => LogoutPost().Result;
 
-    [ActionName(nameof(Logout)), HttpPost("~/connect/logout"), ValidateAntiForgeryToken]
+    [ActionName(nameof(Logout)), HttpPost("connect/logout"), ValidateAntiForgeryToken]
     public async Task<IActionResult> LogoutPost()
     {
         // Ask ASP.NET Core Identity to delete the local and external cookies created
@@ -301,7 +307,7 @@ public class AuthorizationController : Controller
             });
     }
 
-    [HttpPost("~/connect/token"), Produces("application/json")]
+    [HttpPost(EndpointPaths.Token), Produces("application/json")]
     public async Task<IActionResult> Exchange()
     {
         var request = HttpContext.GetOpenIddictServerRequest() ??
@@ -446,23 +452,18 @@ public class AuthorizationController : Controller
     }
 
 
-    [HttpGet("~/callback/login/Microsoft")]
-    [HttpPost("~/callback/login/Microsoft")]
+    [HttpGet(EndpointPaths.CallbackLoginMicrosoft)]
+    [HttpPost(EndpointPaths.CallbackLoginMicrosoft)]
     public async Task<IActionResult> CallbackLoginMicrosoft()
     {
         try
         {
+
             var req = JsonConvert.SerializeObject(new
             {
                 headers = HttpContext.Request.Headers,
                 query = HttpContext.Request.Query,
             });
-            HttpContext.Request.Host = new HostString("apitest.terminals.com.ua:11443/api/auth/v1");
-            //var request = HttpContext.Request;
-            //var rrr = new Uri(request.GetEncodedUrl(), UriKind.Absolute);
-            //HttpContext.Request.Host = new HostString();
-
-            // Resolve the claims extracted by OpenIddict from the userinfo response returned by GitHub.
             var result = await HttpContext.AuthenticateAsync(OpenIddictClientAspNetCoreDefaults.AuthenticationScheme);
             string providerName = result.Principal!.FindFirst("oi_prvd_name")!.Value;
             string nameIdentifier = result.Principal!.FindFirst(ClaimTypes.NameIdentifier)!.Value;
@@ -531,9 +532,7 @@ public class AuthorizationController : Controller
         }
     }
 
-
-
-    [HttpPost("~/validateAccess")]
+    [HttpPost("validateAccess")]
     [Authorize(AuthenticationSchemes = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)]
     public async Task<IActionResult> ValidateAccess(string clientName, string controllerName, string actionName)
     {
