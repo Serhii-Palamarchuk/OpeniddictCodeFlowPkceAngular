@@ -12,10 +12,5 @@
         public Dictionary<string, string> Headers { get; set; }
         public string Body { get; set; }
         public string ContentType { get; set; }
-
-        public Dictionary<string, string> Cookies { get; set; }
-
     }
-
-
 }
