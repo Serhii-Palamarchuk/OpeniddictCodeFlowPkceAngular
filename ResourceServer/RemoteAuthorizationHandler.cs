@@ -30,29 +30,40 @@ namespace ResourceServer
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, RemoteAuthorizationRequirement requirement)
         {
             bool isSucceed = false;
-            if (context.Resource is HttpContext httpContext)
+            try
             {
-                var endpoint = httpContext.GetEndpoint();
-                var descriptor = endpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
-
-                var authHeader = httpContext.Request.Headers["Authorization"].First();
-                var queryPars = HttpUtility.ParseQueryString(string.Empty);
-                queryPars.Add("clientName", requirement.Client);
-                queryPars.Add("controllerName", descriptor.ControllerName);
-                queryPars.Add("actionName", descriptor.ActionName);
-                
-                var builder = new UriBuilder($"{_options.AuthUrl}/ValidateAccess");
-                builder.Query = queryPars.ToString();
-                using (var request = new HttpRequestMessage(HttpMethod.Post, builder.ToString()))
+                if (context.Resource is HttpContext httpContext)
                 {
-                    request.Headers.Add("Authorization", authHeader);
+                    var endpoint = httpContext.GetEndpoint();
+                    var descriptor = endpoint.Metadata.GetMetadata<ControllerActionDescriptor>();
 
-                    using var response = await _client.SendAsync(request);
-                    if (response.IsSuccessStatusCode)
-                        isSucceed = true;
-                    else
-                        _logger.LogWarning($"Remote authorization failed with status code {response.StatusCode}. Content: {response.Content.ReadAsStringAsync()}");
+                    if (!httpContext.Request.Headers.ContainsKey("Authorization"))
+                        throw new Exception("Authorization header was not provided!");
+
+                    var authHeader = httpContext.Request.Headers["Authorization"].First();
+                    var queryPars = HttpUtility.ParseQueryString(string.Empty);
+                    queryPars.Add("clientName", requirement.Client);
+                    queryPars.Add("controllerName", descriptor.ControllerName);
+                    queryPars.Add("actionName", descriptor.ActionName);
+
+                    var builder = new UriBuilder($"{_options.AuthUrl}/ValidateAccess");
+                    builder.Query = queryPars.ToString();
+                    using (var request = new HttpRequestMessage(HttpMethod.Post, builder.ToString()))
+                    {
+                        request.Headers.Add("Authorization", authHeader);
+
+                        using var response = await _client.SendAsync(request);
+                        if (response.IsSuccessStatusCode)
+                            isSucceed = true;
+                        else
+                            _logger.LogWarning($"Remote authorization failed with status code {response.StatusCode}. Content: {response.Content.ReadAsStringAsync()}");
+                    }
                 }
+            }
+            catch(Exception ex)
+            {
+                context.Fail();
+                _logger.LogError(ex, $"{nameof(RemoteAuthorizationHandler)} error: {ex.Message}");
             }
 
             // Перевіряємо, чи є у користувача необхідна роль

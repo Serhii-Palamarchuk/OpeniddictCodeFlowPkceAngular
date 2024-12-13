@@ -10,6 +10,7 @@ using OpenIddict.Validation.AspNetCore;
 using ResourceServer.Model;
 using ResourceServer.Repositories;
 using System;
+using System.Net.Http;
 
 namespace ResourceServer;
 
@@ -137,6 +138,27 @@ public class Startup
             .AddNewtonsoftJson();
 
         services.AddScoped<DataEventRecordRepository>();
+
+        services.Configure<RabbitMQOptions>(Configuration.GetSection("RabbitMQ"));
+        services.AddSingleton<RabbitMQService>();
+        services.AddHostedService<RabbitMQBackgroundService>();
+
+        services.AddHttpClient(nameof(RabbitMQService))
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AllowAutoRedirect = false, // Вимикаємо автоматичний редірект
+            ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Skip SSL validation
+
+        });
+
+        services.AddHttpClient(nameof(RemoteAuthorizationHandler))
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AllowAutoRedirect = false, // Вимикаємо автоматичний редірект
+            ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Skip SSL validation
+
+        });
+        
     }
 
     public void Configure(IApplicationBuilder app)
