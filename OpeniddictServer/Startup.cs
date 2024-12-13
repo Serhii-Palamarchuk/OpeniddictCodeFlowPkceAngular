@@ -203,7 +203,7 @@ public class Startup
                    options.SetProviderName("GitHub")
                           .SetClientId("Ov23lia1Jj87inESrWQL")
                           .SetClientSecret("c58949026d25d6edb5c6c47a00cc5377b2e6fb02")
-                          .SetRedirectUri($"{endpointOptions.BaseUriHttps}/callback/login/github")
+                          .SetRedirectUri($"{endpointOptions.ExternalUri}/callback/login/github")
                           ;
                })
                ;
@@ -288,7 +288,6 @@ public class Startup
         services.Configure<RabbitMQOptions>(Configuration.GetSection("RabbitMQ"));
         services.AddSingleton<RabbitMQService>();
         services.AddHostedService<RabbitMQBackgroundService>();
-
         services.AddHttpClient(nameof(RabbitMQService))
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
@@ -296,6 +295,8 @@ public class Startup
             ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Skip SSL validation
 
         });
+
+        services.AddScoped<ReplaceHostFilter>();
 
         services.AddLogging(builder =>
         {

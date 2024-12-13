@@ -30,6 +30,7 @@ using static OpenIddict.Abstractions.OpenIddictConstants;
 namespace OpeniddictServer.Controllers;
 
 [Route(EndpointPaths.BaseAuthPath)]
+[ServiceFilter(typeof(ReplaceHostFilter))]
 public class AuthorizationController : Controller
 {
     private readonly IOpenIddictApplicationManager _applicationManager;

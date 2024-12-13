@@ -101,7 +101,7 @@ public class RabbitMQService : IDisposable
                     httpClient.Timeout = TimeSpan.FromSeconds(60);
 
                     using (var httpRequest = new HttpRequestMessage(HttpMethod.Parse(request.HttpRequest.Method),
-                        $"{_endpointsOptions.BaseUriHttps}{request.HttpRequest.Path}{request.HttpRequest.QueryString}"))
+                        $"{_endpointsOptions.InternalUri}{request.HttpRequest.Path}{request.HttpRequest.QueryString}"))
                     {
                         foreach (var header in request.HttpRequest.Headers)
                             httpRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);

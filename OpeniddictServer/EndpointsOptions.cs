@@ -33,7 +33,8 @@ namespace AuthService
     public class EndpointsOptions
     {
         public const string Position = "Endpoints";
-        public string BaseUriHttps { get; set; }       
+        public string ExternalUri { get; set; }       
+        public string InternalUri { get; set; }
 
         public string[] ConfigurationUris => GenerateUris(EndpointPaths.Configuration);
         public string[] CryptographyUris => GenerateUris(EndpointPaths.Cryptography);
@@ -46,13 +47,13 @@ namespace AuthService
 
         public string CallbackLoginMicrosoftUri => GenerateUris(EndpointPaths.CallbackLoginMicrosoft)[0];
 
-        public string IssuerUri => $"{BaseUriHttps}/{EndpointPaths.BaseAuthPath}";
+        public string IssuerUri => $"{ExternalUri}/{EndpointPaths.BaseAuthPath}";
 
         private string[] GenerateUris(string endpoint)
         {
             return new string[]
             {
-                $"{BaseUriHttps}/{EndpointPaths.BaseAuthPath}/{endpoint}"
+                $"{ExternalUri}/{EndpointPaths.BaseAuthPath}/{endpoint}"
             };
         }
     }
