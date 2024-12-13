@@ -12,7 +12,7 @@ export class DataEventRecordsService {
     private headers: HttpHeaders = new HttpHeaders();
 
     constructor(private http: HttpClient, private securityService: OidcSecurityService) {
-        this.actionUrl = `https://localhost:44390/api/DataEventRecords/`;
+        this.actionUrl = `https://apitest.terminals.com.ua:11443/api/resource/v1/api/DataEventRecords/`;
     }
 
     private setHeaders(): any {
