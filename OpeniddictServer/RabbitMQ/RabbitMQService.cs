@@ -114,7 +114,7 @@ public class RabbitMQService : IDisposable
 
                         using var httpResponse = await httpClient.SendAsync(httpRequest);
                         if (!httpResponse.IsSuccessStatusCode && httpResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
-                            throw new Exception($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
+                            _logger.LogError($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
 
                         foreach (var header in httpResponse.Headers)
                             foreach (var value in header.Value)

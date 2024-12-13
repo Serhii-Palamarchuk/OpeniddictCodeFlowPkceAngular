@@ -110,15 +110,15 @@ public class RabbitMQService : IDisposable
                         foreach (var header in request.HttpRequest.Headers)
                             httpRequest.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
-                        if (request.HttpRequest.Headers.FirstOrDefault(_=>_.Key == "Content-Type").Value == "application/x-www-form-urlencoded")//if (request.HttpRequest.Path.EndsWith("connect/token"))
+                        if (request.HttpRequest.Headers.FirstOrDefault(_ => _.Key == "Content-Type").Value == "application/x-www-form-urlencoded")//if (request.HttpRequest.Path.EndsWith("connect/token"))
                         {
                             var content = JsonConvert.DeserializeObject<Dictionary<string, string>>(request.HttpRequest.Body);
                             httpRequest.Content = new FormUrlEncodedContent(content);
-                        } 
+                        }
 
                         using var httpResponse = await httpClient.SendAsync(httpRequest);
                         if (!httpResponse.IsSuccessStatusCode && httpResponse.StatusCode != System.Net.HttpStatusCode.Redirect)
-                            throw new Exception($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
+                            _logger.LogError($"Error: {httpResponse.StatusCode} - {httpResponse.ReasonPhrase}");
 
                         foreach (var header in httpResponse.Headers)
                             foreach (var value in header.Value)
