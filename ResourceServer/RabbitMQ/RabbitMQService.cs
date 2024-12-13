@@ -104,7 +104,8 @@ public class RabbitMQService : IDisposable
                     var httpClient = httpFactory.CreateClient(nameof(RabbitMQService));
                     httpClient.Timeout = TimeSpan.FromSeconds(60);
 
-                    var selfUrl = $"https://localhost:44390{request.HttpRequest.Path.Replace("/api/resource/v1", "")}{request.HttpRequest.QueryString}";
+                    string resourceUrl = "https://localhost:44390";
+                    var selfUrl = $"{resourceUrl}{request.HttpRequest.Path.Replace("/api/resource/v1", "")}{request.HttpRequest.QueryString}";
                     using (var httpRequest = new HttpRequestMessage(HttpMethod.Parse(request.HttpRequest.Method), selfUrl))
                     {
                         foreach (var header in request.HttpRequest.Headers)

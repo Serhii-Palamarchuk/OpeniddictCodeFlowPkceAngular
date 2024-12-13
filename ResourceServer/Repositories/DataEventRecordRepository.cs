@@ -21,7 +21,7 @@ public class DataEventRecordRepository
 
     public List<DataEventRecord> GetAll()
     {
-        _logger.LogCritical("Getting a the existing records");
+        _logger.LogInformation("Getting a the existing records");
         var data = _context.DataEventRecords.ToList();
 
         return data;

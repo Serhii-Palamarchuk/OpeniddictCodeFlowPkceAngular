@@ -19,12 +19,15 @@ namespace ResourceServer
     {
         private readonly ILogger<RemoteAuthorizationHandler> _logger;
         private readonly AuthApiOptions _options;
-        private readonly HttpClient _client;
+        private readonly IHttpClientFactory _httpClientFactory;
+
+        //private readonly HttpClient _client;
         public RemoteAuthorizationHandler(ILogger<RemoteAuthorizationHandler> logger, IOptions<AuthApiOptions> options, IHttpClientFactory httpClientFactory)
         {
             _logger = logger;
             _options = options.Value;
-            _client = httpClientFactory.CreateClient(nameof(RemoteAuthorizationHandler));
+            _httpClientFactory = httpClientFactory;
+            //_client = httpClientFactory.CreateClient(nameof(RemoteAuthorizationHandler));
         }
 
         protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, RemoteAuthorizationRequirement requirement)
@@ -46,12 +49,13 @@ namespace ResourceServer
                     queryPars.Add("controllerName", descriptor.ControllerName);
                     queryPars.Add("actionName", descriptor.ActionName);
 
-                    var builder = new UriBuilder($"{_options.AuthUrl}/ValidateAccess");
+                    var builder = new UriBuilder($"{_options.Url}/{_options.ValidateAccessPath}");
                     builder.Query = queryPars.ToString();
                     using (var request = new HttpRequestMessage(HttpMethod.Post, builder.ToString()))
                     {
                         request.Headers.Add("Authorization", authHeader);
 
+                        var _client = _httpClientFactory.CreateClient(nameof(RemoteAuthorizationHandler));
                         using var response = await _client.SendAsync(request);
                         if (response.IsSuccessStatusCode)
                             isSucceed = true;

@@ -1,6 +1,7 @@
-﻿namespace AuthService
+﻿
+namespace AuthService
 {
-    public class EndpointPaths
+    public static class EndpointPaths
     {
         public const string BaseAuthPath = "api/auth/v1";
 
@@ -13,7 +14,20 @@
         public const string UserInfo = "connect/userinfo";
         public const string Verify = "connect/verify";
 
+        public const string ConfigurationExt = $"{BaseAuthPath}/{Configuration}";
+        public const string CryptographyExt = $"{BaseAuthPath}/{Cryptography}";
+        public const string AuthorizationExt = $"{BaseAuthPath}/{Authorization}";
+        public const string IntrospectionExt = $"{BaseAuthPath}/{Introspection}";
+        public const string TokenExt = $"{BaseAuthPath}/{Token}";
+        public const string LogoutExt = $"{BaseAuthPath}/{Logout}";
+        public const string UserInfoExt = $"{BaseAuthPath}/{UserInfo}";
+        public const string VerifyExt = $"{BaseAuthPath}/{Verify}";
+
         public const string CallbackLoginMicrosoft = "callback/login/Microsoft";
+        public const string CallbackLoginMicrosoftExt = $"{BaseAuthPath}/{CallbackLoginMicrosoft}";
+        
+        public const string ValidateAccess = "validateAccess";
+        public const string ValidateAccessExt = $"{BaseAuthPath}/{ValidateAccess}";
     }
 
     public class EndpointsOptions
@@ -32,11 +46,13 @@
 
         public string CallbackLoginMicrosoftUri => GenerateUris(EndpointPaths.CallbackLoginMicrosoft)[0];
 
+        public string IssuerUri => $"{BaseUriHttps}/{EndpointPaths.BaseAuthPath}";
+
         private string[] GenerateUris(string endpoint)
         {
             return new string[]
             {
-                $"{BaseUriHttps}/{EndpointPaths.BaseAuthPath}/{endpoint}",
+                $"{BaseUriHttps}/{EndpointPaths.BaseAuthPath}/{endpoint}"
             };
         }
     }

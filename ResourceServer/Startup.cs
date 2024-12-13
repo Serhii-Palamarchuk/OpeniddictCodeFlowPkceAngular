@@ -65,7 +65,7 @@ public class Startup
             {
                 // Note: the validation handler uses OpenID Connect discovery
                 // to retrieve the address of the introspection endpoint.
-                options.SetIssuer(_options.AuthUrl);
+                options.SetIssuer(_options.Url);
                 options.AddAudiences(_options.Audience);
 
                 // Configure the validation handler to use introspection and register the client
@@ -75,7 +75,8 @@ public class Startup
                         .SetClientSecret(_options.ClientSecret);
 
                 // Register the System.Net.Http integration.
-                options.UseSystemNetHttp();
+                options.UseSystemNetHttp()
+                .ConfigureHttpClientHandler(_=>_.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true); // Skip SSL validation
 
                 // Register the ASP.NET Core host.
                 options.UseAspNetCore();
@@ -154,9 +155,7 @@ public class Startup
         services.AddHttpClient(nameof(RemoteAuthorizationHandler))
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
-            AllowAutoRedirect = false, // Вимикаємо автоматичний редірект
             ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true // Skip SSL validation
-
         });
         
     }

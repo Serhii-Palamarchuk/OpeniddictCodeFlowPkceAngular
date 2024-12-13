@@ -229,7 +229,8 @@ public class Startup
                 //   .SetUserinfoEndpointUris("connect/userinfo")
                 //   .SetVerificationEndpointUris("connect/verify");
 
-                options.SetConfigurationEndpointUris(endpointOptions.ConfigurationUris)
+                options.SetIssuer(endpointOptions.IssuerUri)
+                       .SetConfigurationEndpointUris(endpointOptions.ConfigurationUris)
                        .SetCryptographyEndpointUris(endpointOptions.CryptographyUris)
                        .SetAuthorizationEndpointUris(endpointOptions.AuthorizationUris)
                        .SetIntrospectionEndpointUris(endpointOptions.IntrospectionUris)

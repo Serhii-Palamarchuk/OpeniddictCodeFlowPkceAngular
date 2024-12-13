@@ -4,7 +4,8 @@
     {
         public const string Position = "AuthApiOptions";
 
-        public string AuthUrl { get; set; }
+        public string Url { get; set; }
+        public string ValidateAccessPath { get; set; }
 
         public string Audience { get; set; }
         public string ClientId { get; set; }
